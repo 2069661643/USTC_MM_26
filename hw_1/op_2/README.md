@@ -25,7 +25,64 @@
   - 请对求解结果进行可视化展示，高亮最优路径
 - [Optional] 考虑换乘时间
   - 如果乘客在某个车站进行换乘，需要额外增加换乘时间（假设换乘时间恒定），请在路径计算中考虑该因素
+  - 目前仅 Beijing 提供了线路信息（`Beijing-2010-station-lines.txt`），该问题只需对北京求解
 
-实验中需要的数据见 [data](./data) 文件夹；数据格式说明请见 [data/README.md](./data/README.md)。 **选择 3 座城市进行求解即可。**
+实验中需要的数据见 [data](./data) 文件夹；数据格式说明请见 [data/README.md](./data/README.md)。 **最短路径问题选择 3 座城市进行求解即可；Optional 的换乘问题仅需对 Beijing 求解。**
 
 > 数据来源：[Data for the 15 largest metro systems worldwide (2010)](https://explore.openaire.eu/search/dataset?pid=10.5281%2Fzenodo.17635286)
+
+
+## 环境配置
+推荐使用[Miniforge](https://conda-forge.org/download/)管理python环境。
+
+使用 conda 创建并激活环境：
+
+```bash
+conda create -n mm26 python=3.12
+conda activate mm26
+pip install numpy matplotlib
+```
+
+
+## 代码模板
+
+我们提供了一个交互式可视化框架，包含完整的 GUI 界面。你只需要在算法模块中补全核心函数即可。模板仅供参考，欢迎实现更 fancy 的版本。
+
+### 文件结构
+
+```
+code_template/
+├── main.py              # 程序入口，直接运行即可启动 GUI
+├── gui.py               # GUI 模块（无需修改）
+└── metro_algorithm.py   # 算法模块（需要补全）
+```
+
+### 运行方式
+
+```bash
+conda activate mm26
+cd code_template
+python main.py
+```
+
+### GUI 说明
+
+运行 `python main.py` 启动交互式界面：
+
+- **右侧面板**：选择城市 → 选择起点站 / 终点站 → 点击 "Find Shortest Path" 求解
+- **左侧画布**：展示地铁网络图，选中站点会高亮标记，求解后最短路径以红色高亮显示
+- **Route Output**：在右下角文本窗口输出路径详情（距离、站数、完整站名序列）
+
+> 在算法未完成时，GUI 仍然可以正常启动和交互，但不会有实际的网络图和求解结果。
+
+### 需要完成的代码
+
+请打开 `code_template/metro_algorithm.py`，补全以下三个标有 `TODO` 的函数：
+
+| 函数 | 说明 |
+|------|------|
+| `build_graph(stations, adj)` | 根据站点映射和邻接矩阵构建 `networkx` 加权图 |
+| `dijkstra(G, src, dst)` | 手写 Dijkstra 算法，返回最短距离和路径 |
+| `MetroSystem.shortest_path(src_name, dst_name)` | 将站名转为 id，调用 `dijkstra` 求解 |
+
+完成后，重新运行 `python main.py`，选择城市和站点即可验证结果。
