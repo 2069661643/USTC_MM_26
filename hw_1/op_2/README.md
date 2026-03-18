@@ -46,6 +46,10 @@
 
 我们提供了一个交互式可视化框架，包含完整的 GUI 界面。你只需要在算法模块中补全核心函数即可。模板仅供参考，欢迎实现更 fancy 的版本。
 
+<p align="center">
+  <video src="./demos/python框架运行demo_compressed.mp4" width="600" controls></video>
+</p>
+
 ### 环境配置
 推荐使用[Miniforge](https://conda-forge.org/download/)管理python环境。
 
