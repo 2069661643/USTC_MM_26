@@ -1,5 +1,18 @@
 # 选项1：图像的接缝裁剪
 
+## 目录
+
+- [引言](#引言)
+- [实验要求](#实验要求)
+- [MATLAB 框架](#matlab-框架)
+  - [运行方式](#运行方式)
+  - [需要完成的代码](#需要完成的代码)
+- [Python 框架](#python-框架)
+  - [环境配置](#环境配置)
+  - [文件结构](#文件结构)
+  - [运行方式](#运行方式-1)
+  - [需要完成的代码](#需要完成的代码-1)
+
 ## 引言
 
 打开 bing 浏览器首页并全屏，你会看到类似于下图的首页背景图片
@@ -53,9 +66,74 @@
 - 对实验结果的必要说明
 
 实现说明：
-- 本次作业提供了 `MATLAB` 的程序框架 [same_carving.m](./seam_carving.m)，只需要实现其中的 `seam_carve_image` 函数
-- 本次实验不限制编程语言，但如果你不打算使用提供的 `MATLAB` 框架，请自行搭建类似的图形界面
+- 本次作业提供了 `MATLAB` 和 `Python` 两套程序框架，可任选其一
+- 本次实验不限制编程语言，但如果你不打算使用提供的框架，请自行搭建类似的图形界面
 - 如果你有新解法或其他方面的创新，欢迎在报告中呈现
 
 > 作为练习，我们鼓励大家完成论文中除接缝裁剪外的其他应用（如 Image Enlarging, Content Amplification, etc）
 
+## MATLAB 框架
+
+### 运行方式
+
+在 MATLAB 中打开 `code_template/seam_carving.m`，直接运行即可。程序会启动一个图形界面，左侧显示原始图像，右侧显示裁剪结果。点击工具栏上的蓝色按钮即可触发 Seam Carving 裁剪（默认将图像宽度缩小 300 像素）。
+
+### 需要完成的代码
+
+请打开 `code_template/seam_carving.m`，补全 `seam_carve_image` 函数中标有 `TODO` 的部分：
+
+| 步骤 | 说明 |
+|------|------|
+| 计算能量图 | 已提供 `costfunction`，利用 Laplacian 滤波器计算每个像素的能量值 |
+| 寻找最优接缝 | 在能量图 `G` 上，使用动态规划找到一条从顶部到底部的最小能量路径（seam） |
+| 移除接缝 | 将找到的 seam 从图像 `im` 中移除，使图像宽度减少 1 像素 |
+
+框架中已提供的能量函数为：
+
+$$e(x, y) = \sum_{c \in \{R,G,B\}} \left( \nabla^2 I_c(x, y) \right)^2$$
+
+其中 $\nabla^2$ 为 Laplacian 算子，`costfunction` 使用 `[.5 1 .5; 1 -6 1; .5 1 .5]` 滤波核近似。每次迭代移除一条 seam，循环 `k` 次即可将图像宽度缩小 `k` 像素。
+
+## Python 框架
+
+我们也提供了一个 Python 实现框架，功能与 MATLAB 框架等价。
+
+### 环境配置
+
+推荐使用 [Miniforge](https://conda-forge.org/download/) 管理 Python 环境。
+
+使用 conda 创建并激活环境：
+
+```bash
+conda create -n mm26 python=3.12
+conda activate mm26
+pip install numpy matplotlib scikit-image scipy
+```
+
+### 文件结构
+
+```
+code_template/
+├── seam_carving.py      # Python 框架（需要补全）
+└── seam_carving.m       # MATLAB 框架（需要补全）
+```
+
+### 运行方式
+
+```bash
+conda activate mm26
+cd code_template
+python seam_carving.py
+```
+
+运行后弹出 matplotlib 窗口，左侧显示原始图像，右侧显示裁剪结果。通过两个滑动条分别设置列（宽度）和行（高度）的缩放比例（0.5~2.0），点击 **Seam Carving** 按钮即可触发裁剪/放大。
+
+### 需要完成的代码
+
+请打开 `code_template/seam_carving.py`，补全标有 `TODO` 的 `seam_carve_image` 函数。该函数与 MATLAB 版本的接口完全一致：
+
+| 函数 | 说明 |
+|------|------|
+| `seam_carve_image(im, sz)` | 输入原始图像 `im` 和目标尺寸 `sz = (target_h, target_w)`，返回调整后的图像 |
+
+完成后，运行 `python seam_carving.py` 即可验证结果。欢迎进一步优化或实现更多功能。

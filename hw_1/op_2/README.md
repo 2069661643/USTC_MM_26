@@ -98,11 +98,12 @@ python main.py
 
 ### 需要完成的代码
 
-请打开 `code_template/metro_algorithm.py`，补全以下三个标有 `TODO` 的函数：
+请打开 `code_template/metro_algorithm.py`，补全以下标有 `TODO` 的部分：
 
-| 函数 | 说明 |
+| 部分 | 说明 |
 |------|------|
-| `build_graph(stations, adj)` | 根据站点映射和邻接矩阵构建加权图 |
+| `Graph` 类 | 实现无向加权图的数据结构（`add_node`、`add_edge`、`neighbors`、`edges` 等） |
+| `build_graph(stations, adj)` | 使用 `Graph` 类，根据站点映射和邻接矩阵构建加权图 |
 | `dijkstra(G, src, dst)` | 手写 Dijkstra 算法，返回最短距离和路径 |
 | `MetroSystem.shortest_path(src_name, dst_name)` | 将站名转为 id，调用 `dijkstra` 求解 |
 

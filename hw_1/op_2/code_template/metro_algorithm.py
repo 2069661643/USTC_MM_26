@@ -56,10 +56,8 @@ class Graph:
     def add_edge(self, u, v, weight=1.0):
         """
         添加无向边 (u, v)，权重为 weight。
-
-        注意是无向图，u→v 和 v→u 都需要记录。
         """
-        # TODO: 在邻接结构中记录双向边及权重
+        # TODO: 在邻接结构中记录无向边及权重
         pass
 
     def neighbors(self, node_id):
