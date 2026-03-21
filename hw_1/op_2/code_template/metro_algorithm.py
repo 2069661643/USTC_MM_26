@@ -41,6 +41,7 @@ class Graph:
 
     def __init__(self):
         self.nodes = {}
+        self.edges_ = []
         # TODO: 初始化你的数据结构
 
     def add_node(self, node_id, **attrs):
@@ -55,14 +56,36 @@ class Graph:
             节点属性，例如 name="StationA"。
         """
         # TODO: 将节点及其属性存入 self.nodes，并初始化邻接结构
-        pass
+        self.nodes[node_id] = attrs
+        if "neighbors" not in self.nodes[node_id].keys():
+            self.nodes[node_id]["neighbors"] = {}
 
     def add_edge(self, u, v, weight=1.0):
         """
         添加无向边 (u, v)，权重为 weight。
         """
         # TODO: 在邻接结构中记录无向边及权重
-        pass
+        if u not in self.nodes.keys():
+            raise ValueError("Point %f is not exist!"%u)
+        if v not in self.nodes.keys():
+            raise ValueError("Point %f is not exist!"%v)
+        if v in self.nodes[u]["neighbors"].keys():
+            index = -1
+            for i in range(len(self.edges_)):
+                if (self.edges_[i][0] == u and self.edges_[i][1] == v) \
+                    or (self.edges_[i][0] == v and self.edges_[i][1] == u):
+                    index = i
+                    break
+            if index != -1:
+                self.edges_.pop(index)
+                self.edges_.append((u, v, weight))
+            else:
+                self.edges_.append((u, v, weight))
+        else:
+            self.edges_.append((u, v, weight))
+        self.nodes[u]["neighbors"][v] = weight
+        self.nodes[v]["neighbors"][u] = weight
+
 
     def neighbors(self, node_id):
         """
@@ -71,17 +94,20 @@ class Graph:
         若节点不存在或无邻居，返回空字典。
         """
         # TODO: 返回邻居及对应权重
-        return {}
+        if node_id not in self.nodes.keys():
+            return {}
+        else:
+            return self.nodes[node_id]["neighbors"]
 
     def number_of_nodes(self):
         """返回图中节点数量。"""
         # TODO
-        return 0
+        return len(self.nodes)
 
     def number_of_edges(self):
         """返回图中边的数量（每条无向边只计一次）。"""
         # TODO
-        return 0
+        return len(self.edges_)
 
     def edges(self):
         """
@@ -90,7 +116,7 @@ class Graph:
         GUI 的绘图函数会调用此方法来绘制网络边。
         """
         # TODO
-        return []
+        return self.edges_
 
 
 # ============================================================
@@ -135,7 +161,14 @@ def build_graph(stations: dict[int, str], adj: np.ndarray) -> Graph:
     - 矩阵下标从 0 开始，站点 id 从 1 开始
     """
     # TODO: 构建加权图
-    return Graph()
+    g = Graph()
+    for station_id, name in stations.items():
+        g.add_node(station_id, name=name)
+    for i in range(adj.shape[0]):
+        for j in range(i,adj.shape[1]):
+            if adj[i, j] > 0:
+                g.add_edge(i+1, j+1, adj[i, j])
+    return g
 
 
 # ============================================================
@@ -168,7 +201,35 @@ def dijkstra(G: Graph, src: int, dst: int) -> tuple[float, list[int]]:
     - 使用前驱字典 prev 回溯路径
     """
     # TODO: 实现 Dijkstra 算法
-    return float("inf"), []
+    node_remain = list(G.nodes.keys())
+    if src not in node_remain or dst not in node_remain:
+        return float("inf"), []
+    curr_node = src
+    node_prev = {}
+    node_leng = {x:float('inf') for x in node_remain}
+    node_leng[src] = 0
+    node_remain.remove(src)
+    while dst in node_remain:
+        for neighbor_node, weight in G.neighbors(curr_node).items():
+            if weight + node_leng[curr_node] < node_leng[neighbor_node]:
+                node_prev[neighbor_node] = curr_node
+                node_leng[neighbor_node] = node_leng[curr_node] + weight
+        min_len = float('inf')
+        next_node = None
+        for node in node_remain:
+            if node_leng[node] < min_len:
+                min_len = node_leng[node]
+                next_node = node
+        if next_node is not None:
+            curr_node = next_node
+        else :
+            return float("inf"), []
+        node_remain.remove(curr_node)
+
+    path = [dst]
+    while path[0] != src:
+        path.insert(0,node_prev[path[0]])
+    return node_leng[dst], path
 
 
 # ============================================================
@@ -219,7 +280,10 @@ class MetroSystem:
         - 调用 dijkstra(self.graph, src_id, dst_id)
         """
         # TODO: 将站名转为 id，调用 dijkstra 函数求解
-        return float("inf"), []
+        src = self.name_to_id[src_name]
+        dst = self.name_to_id[dst_name]
+        leng, path = dijkstra(self.graph, src, dst)
+        return leng, path
 
 
 def detect_cities(data_root: str | Path) -> list[str]:
@@ -230,3 +294,16 @@ def detect_cities(data_root: str | Path) -> list[str]:
         if d.is_dir() and list(d.glob("*adjacency-distance.csv")):
             cities.append(d.name)
     return cities
+
+if __name__ == "__main__":
+    g = Graph()
+    g.add_node(1)
+    g.add_node(2)
+    g.add_node(3)
+    g.add_node(4)
+    g.add_edge(1, 2, 10)
+    g.add_edge(2, 3, 6)
+    g.add_edge(3, 4, 10)
+    g.add_edge(1, 4, 2)
+    g.add_edge(2, 4, 1)
+    print(dijkstra(g, 1, 3))
