@@ -150,13 +150,13 @@ class MetroApp:
 
         row = ttk.Frame(sec)
         row.pack(fill=tk.X, pady=py)
-
         ttk.Label(row, text="Transfer cost will be set as").pack(side=tk.LEFT)
-
         self.transfer_cost = tk.StringVar(value='0.0')
-
         entry = ttk.Entry(row, textvariable=self.transfer_cost, width=10)
         entry.pack(side=tk.LEFT, padx=px)
+        update_button = ttk.Button(row, text="Update", width=10)
+        update_button.pack(side=tk.LEFT, padx=px)
+        update_button.bind("<Button-1>", self._on_city_selected)
 
         sec = ttk.LabelFrame(sidebar, text="Station Selection", padding=8)
         sec.pack(fill=tk.X, padx=px, pady=py)
@@ -195,7 +195,7 @@ class MetroApp:
 
     def _on_city_selected(self, _event=None):
         city = self.city_var.get()
-        self.metro = MetroSystem(self.data_root / city)
+        self.metro = MetroSystem(self.data_root / city, float(self.transfer_cost.get()))
 
         names = self.metro.sorted_station_names()
         self.src_cb["values"] = names

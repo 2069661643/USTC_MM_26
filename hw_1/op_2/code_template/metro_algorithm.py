@@ -239,59 +239,83 @@ def consider_transfer_cost(
         lines_path: str | Path,
         cost: float) \
         -> tuple[dict[int,str], np.ndarray]:
+    """
+    将原始站点扩展为(站点, 线路)对，添加换乘费用。
+    
+    Parameters
+    ----------
+    stations : dict[int, str]
+        原始站点映射 {id: name}
+    adj : np.ndarray
+        原始站点间的邻接矩阵
+    lines_path : str | Path
+        站点-线路映射文件路径
+    cost : float
+        同一站点不同线路间的换乘费用
+        
+    Returns
+    -------
+    (out_stations, out_adj) : (dict, np.ndarray)
+        out_stations: 新的站点映射 {新id: "name (line)"}
+        out_adj: 新的邻接矩阵，包含换乘费用
+    """
+    if cost < 1e-6:
+        return stations, adj
+
     id_line_map = {}
-    station_count = 0
     station_id_map = {}
-    n = len(stations.keys())
     for key in stations.keys():
         station_id_map[stations[key]] = key
+    
     with open(lines_path, "r", encoding="utf-8") as f:
         next(f)
         for line in f:
             line = line.strip()
             parts = line.split("\t", 1)
             name, attr = parts
-            id_line_map[station_id_map[name]] = [x.strip() for x in attr.split(",") if x.strip()]
-            station_count += len(id_line_map[station_id_map[name]])
+            station_id = station_id_map[name]
+            id_line_map[station_id] = [x.strip() for x in attr.split(",") if x.strip()]
+
+    station_count = sum(len(lines) for lines in id_line_map.values())
+
+    def find_station_and_line(pos):
+        sorted_ids = sorted(id_line_map.keys())
+        current_pos = 0
+        for station_id in sorted_ids:
+            num_lines = len(id_line_map[station_id])
+            if current_pos + num_lines > pos:
+                line_idx = pos - current_pos
+                return station_id, line_idx
+            current_pos += num_lines
+        return None, None
+
     out_adj = np.zeros((station_count, station_count))
+    sorted_ids = sorted(id_line_map.keys())
+    
     for i in range(station_count):
         for j in range(station_count):
-            index_i = 0
-            i_remain = i
-            for u in sorted(id_line_map.keys()):
-                if i_remain - len(id_line_map[u]) >= 0:
-                    i_remain -= len(id_line_map[u])
-                    index_i += 1
-                else :
-                    break
-            index_j = 0
-            j_remain = j
-            for u in sorted(id_line_map.keys()):
-                if j_remain - len(id_line_map[u]) >= 0:
-                    j_remain -= len(id_line_map[u])
-                    index_j += 1
-                else :
-                    break
-            if index_i == index_j:
-                if id_line_map[index_i+1][i_remain] == id_line_map[index_j+1][j_remain]:
+            station_id_i, line_idx_i = find_station_and_line(i)
+            station_id_j, line_idx_j = find_station_and_line(j)
+            
+            line_i = id_line_map[station_id_i][line_idx_i]
+            line_j = id_line_map[station_id_j][line_idx_j]
+            
+            if station_id_i == station_id_j:
+                if line_i == line_j:
                     out_adj[i, j] = 0
                 else:
                     out_adj[i, j] = cost
             else:
-                if id_line_map[index_i+1][i_remain] == id_line_map[index_j+1][j_remain]:
-                    out_adj[i, j] = adj[index_i, index_j]
+                if line_i == line_j:
+                    out_adj[i, j] = adj[station_id_i - 1, station_id_j - 1]
                 else:
                     out_adj[i, j] = 0
+
     out_stations = {}
-    for id_ in id_line_map.keys():
+    for id_ in sorted(id_line_map.keys()):
         for line_ in id_line_map[id_]:
             out_stations[len(out_stations) + 1] = stations[id_] + ' (' + line_ + ')'
-    if len(out_stations.keys()) == station_count:
-        print("success")
-    else:
-        print("fail")
-        print(len(out_stations.keys()))
-        print(station_count)
+
     return out_stations, out_adj
 
 
@@ -315,8 +339,8 @@ class MetroSystem:
 
         self.stations = load_station_map(str(tsv))
         adj = load_adjacency_matrix(str(csv_f))
-        if self.city == 'Beijing':
-            self.stations, adj = consider_transfer_cost(self.stations, adj, lines_path, cost)
+        if self.city == 'Beijing' and cost > 1e-6:
+            self.stations, adj = consider_transfer_cost(self.stations, adj.copy(), lines_path, cost)
         self.graph = build_graph(self.stations, adj)
 
         self.name_to_id: dict[str, int] = {
@@ -365,14 +389,51 @@ def detect_cities(data_root: str | Path) -> list[str]:
     return cities
 
 if __name__ == "__main__":
-    g = Graph()
-    g.add_node(1)
-    g.add_node(2)
-    g.add_node(3)
-    g.add_node(4)
-    g.add_edge(1, 2, 10)
-    g.add_edge(2, 3, 6)
-    g.add_edge(3, 4, 10)
-    g.add_edge(1, 4, 2)
-    g.add_edge(2, 4, 1)
-    print(dijkstra(g, 1, 3))
+
+    # ============================================================
+    # 换乘费用测试
+    # ============================================================
+    print("\n=== 换乘费用测试 ===")
+    
+    # 创建临时测试文件
+    import tempfile
+    import os
+    
+    # 原始站点和邻接矩阵
+    test_stations = {1: "StationA", 2: "StationB", 3: "StationC"}
+    test_adj = np.array([
+        [0., 2.5, 15],
+        [2.5, 0, 5],
+        [15, 5, 0] 
+    ])
+    
+    # 创建临时线路文件
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
+        f.write("station\tlines\n")
+        f.write("StationA\tLine1,Line2\n")
+        f.write("StationB\tLine1,Line2\n")
+        f.write("StationC\tLine1\n")
+        temp_lines_file = f.name
+    
+    try:
+        # 调用考虑换乘费用的函数
+        out_stations, out_adj = consider_transfer_cost(
+            test_stations, 
+            test_adj, 
+            temp_lines_file, 
+            cost=2.0
+        )
+        
+        print(f"原始站点数: {len(test_stations)}")
+        print(f"扩展站点数(考虑线路): {len(out_stations)}")
+        print(f"\n扩展后的站点:")
+        for sid, name in sorted(out_stations.items()):
+            print(f"  {sid}: {name}")
+        
+        print(f"\n扩展后的邻接矩阵形状: {out_adj.shape}")
+        print(f"邻接矩阵(部分):")
+        print(out_adj[:6, :6])
+        
+    finally:
+        # 清理临时文件
+        os.unlink(temp_lines_file)
