@@ -7,8 +7,10 @@
 import csv
 import heapq
 from pathlib import Path
+from time import sleep
 
 import numpy as np
+from matplotlib import lines
 
 
 # ============================================================
@@ -231,6 +233,67 @@ def dijkstra(G: Graph, src: int, dst: int) -> tuple[float, list[int]]:
         path.insert(0,node_prev[path[0]])
     return node_leng[dst], path
 
+def consider_transfer_cost(
+        stations: dict[int, str], 
+        adj: np.ndarray, 
+        lines_path: str | Path,
+        cost: float) \
+        -> tuple[dict[int,str], np.ndarray]:
+    id_line_map = {}
+    station_count = 0
+    station_id_map = {}
+    n = len(stations.keys())
+    for key in stations.keys():
+        station_id_map[stations[key]] = key
+    with open(lines_path, "r", encoding="utf-8") as f:
+        next(f)
+        for line in f:
+            line = line.strip()
+            parts = line.split("\t", 1)
+            name, attr = parts
+            id_line_map[station_id_map[name]] = [x.strip() for x in attr.split(",") if x.strip()]
+            station_count += len(id_line_map[station_id_map[name]])
+    out_adj = np.zeros((station_count, station_count))
+    for i in range(station_count):
+        for j in range(station_count):
+            index_i = 0
+            i_remain = i
+            for u in sorted(id_line_map.keys()):
+                if i_remain - len(id_line_map[u]) >= 0:
+                    i_remain -= len(id_line_map[u])
+                    index_i += 1
+                else :
+                    break
+            index_j = 0
+            j_remain = j
+            for u in sorted(id_line_map.keys()):
+                if j_remain - len(id_line_map[u]) >= 0:
+                    j_remain -= len(id_line_map[u])
+                    index_j += 1
+                else :
+                    break
+            if index_i == index_j:
+                if id_line_map[index_i+1][i_remain] == id_line_map[index_j+1][j_remain]:
+                    out_adj[i, j] = 0
+                else:
+                    out_adj[i, j] = cost
+            else:
+                if id_line_map[index_i+1][i_remain] == id_line_map[index_j+1][j_remain]:
+                    out_adj[i, j] = adj[index_i, index_j]
+                else:
+                    out_adj[i, j] = 0
+    out_stations = {}
+    for id_ in id_line_map.keys():
+        for line_ in id_line_map[id_]:
+            out_stations[len(out_stations) + 1] = stations[id_] + ' (' + line_ + ')'
+    if len(out_stations.keys()) == station_count:
+        print("success")
+    else:
+        print("fail")
+        print(len(out_stations.keys()))
+        print(station_count)
+    return out_stations, out_adj
+
 
 # ============================================================
 # MetroSystem 高层封装
@@ -239,15 +302,21 @@ def dijkstra(G: Graph, src: int, dst: int) -> tuple[float, list[int]]:
 class MetroSystem:
     """封装单个城市的地铁系统：加载数据、构建图、求解路径。"""
 
-    def __init__(self, data_dir: str | Path):
+    def __init__(self, data_dir: str | Path, cost = 0):
         data_dir = Path(data_dir)
         self.city = data_dir.name
 
         tsv = next(data_dir.glob("*station-id-map.tsv"))
         csv_f = next(data_dir.glob("*adjacency-distance.csv"))
+        if self.city == 'Beijing':
+            lines_path = next(data_dir.glob("*station-lines.txt"))
+        else:
+            lines_path = ''
 
         self.stations = load_station_map(str(tsv))
         adj = load_adjacency_matrix(str(csv_f))
+        if self.city == 'Beijing':
+            self.stations, adj = consider_transfer_cost(self.stations, adj, lines_path, cost)
         self.graph = build_graph(self.stations, adj)
 
         self.name_to_id: dict[str, int] = {

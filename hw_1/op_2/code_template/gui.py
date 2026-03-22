@@ -148,6 +148,16 @@ class MetroApp:
         cb.pack(fill=tk.X)
         cb.bind("<<ComboboxSelected>>", self._on_city_selected)
 
+        row = ttk.Frame(sec)
+        row.pack(fill=tk.X, pady=py)
+
+        ttk.Label(row, text="Transfer cost will be set as").pack(side=tk.LEFT)
+
+        self.transfer_cost = tk.StringVar(value='0.0')
+
+        entry = ttk.Entry(row, textvariable=self.transfer_cost, width=10)
+        entry.pack(side=tk.LEFT, padx=px)
+
         sec = ttk.LabelFrame(sidebar, text="Station Selection", padding=8)
         sec.pack(fill=tk.X, padx=px, pady=py)
 
@@ -223,7 +233,6 @@ class MetroApp:
         if src_name == dst_name:
             self._log("Source and destination are the same station.")
             return
-
         cost, path = self.metro.shortest_path(src_name, dst_name)
         if not path:
             self._log("No path found from {} to {}.".format(src_name, dst_name))
