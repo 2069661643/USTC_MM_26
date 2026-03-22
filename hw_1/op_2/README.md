@@ -117,14 +117,14 @@ python main.py
 
 ## C++ 框架
 
-我们同样提供了 C++ 实现框架，与 Python 框架功能等价，依赖 OpenCV 和标准库。
+我们同样提供了 C++ 实现框架，依赖 OpenCV 和标准库。仅供参考。
 
 ### 文件结构
 
 ```
 code_template_cpp/
 ├── main.cpp              # 程序入口
-├── metro_algorithm.h     # 算法头文件（Graph、Path、dijkstra 声明）
+├── metro_algorithm.h     # 算法头文件（相关类和函数的声明）
 ├── metro_algorithm.cpp   # 算法实现（需补全 TODO）
 ├── metro_gui.h           # GUI 头文件
 ├── metro_gui.cpp         # GUI 实现（已提供）
@@ -139,7 +139,7 @@ code_template_cpp/
 |------|------------|------|
 | 1/3 | `Graph::addEdge(u, v, w)` | 向邻接表添加一条无向加权边|
 | 2/3 | `Graph::numEdges()` | 返回图中无向边的总数 |
-| 3/3 | `dijkstra(G, src, dst)` | 堆优化 Dijkstra，返回 `Path{total_cost, node_ids}` |
+| 3/3 | `dijkstra(G, src, dst)` | 实现 Dijkstra算法，返回最短路径 `Path{total_cost, node_ids}` |
 
 已提供的部分：
 - 完整 OpenCV GUI（图形绘制、鼠标交互、信息面板）
