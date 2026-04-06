@@ -3,7 +3,7 @@ __pycache__
 **/code_answer/
 **/code_answer_cpp/
 **/.DS_Store
-
+.idea/
 # C++ / CMake
 build/
 **/build/
