@@ -164,7 +164,7 @@ def svd(A:np.ndarray,
     :type A: np.ndarray
     :param eps: error constant
     :type eps: float
-    :return: (U, S, V), A = U @ S @ V
+    :return: (U, S, V), A = U @ S @ V.T
     :rtype: tuple[np.ndarray, np.ndarray, np.ndarray]
     """
     A = np.array(A,dtype=np.float64)
@@ -260,7 +260,7 @@ def svd(A:np.ndarray,
         S = np.zeros((m, n))
         np.fill_diagonal(S, np.diag(B))
 
-    return U, S, V
+    return U, S, V.T
 
 def ez_test():
     A = np.array([[1, 2, 0, 0], [0, 0, 1, 0], [0, 0, 1, 1], [0, 0, 0, 9]])
