@@ -154,7 +154,8 @@ def clear_one_row(B:np.ndarray, i:int) -> tuple[np.ndarray, np.ndarray]:
     return P,B
 
 def svd(A:np.ndarray,
-        eps:float = 1e-8
+        eps:float = 1e-8,
+        debug = False
         ) -> \
         tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -238,33 +239,45 @@ def svd(A:np.ndarray,
         B[p:q, p:q] = B22
         Q[:, p:q] = Q[:, p:q] @ V
 
-    # Step 5
+    '''    # Step 5
     # Sort the singular values in descending order
     diag_B = np.diag(B)
     sort_order = np.argsort(diag_B)[::-1]
 
+    if debug:
+        print("PBQshape")
+        print(P.shape)
+        print(B.shape)
+        print(Q.shape)
+
     B = B[sort_order, :][:, sort_order]
-    P = P[sort_order, :]
+    P[:n,:] = P[sort_order, :]
     Q = Q[:, sort_order]
+
+    if debug:
+        print("PBQshape")
+        print(P.shape)
+        print(B.shape)
+        print(Q.shape)'''
 
     # Step 6
     # Transform the matrix into the form in Docstring
     if transpose_flag:
         U = Q
         V = P
-        S = np.zeros((n, m))
-        np.fill_diagonal(S, np.diag(B))
+        S = B  # np.zeros((n, m))
+        # np.fill_diagonal(S, np.diag(B))
     else:
         U = P.T
         V = Q.T
-        S = np.zeros((m, n))
-        np.fill_diagonal(S, np.diag(B))
+        S = B  # np.zeros((m, n))
+        # np.fill_diagonal(S, np.diag(B))
 
     return U, S, V.T
 
 def ez_test():
-    A = np.array([[1, 2, 0, 0], [0, 0, 1, 0], [0, 0, 1, 1], [0, 0, 0, 9]])
-    U, S, V = svd(A)
+    A = np.array([[1, 2, 0, 9], [0, 3, 1, 0], [0, 0, 1, 1], [0,0,0,0]])
+    U, S, V = svd(A, debug = True)
     print("A=")
     print(A)
     print("U=")
@@ -273,8 +286,12 @@ def ez_test():
     print(S)
     print("V=")
     print(V)
+    print("U@U.T=")
+    print(U@U.T)
+    print("V@V.T=")
+    print(V@V.T)
     print("U S V=")
-    print(U @ S @ V)
+    print(U @ S @ V.T)
 
 if __name__ == "__main__":
     ez_test()
