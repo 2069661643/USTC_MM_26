@@ -5,6 +5,7 @@ from pathlib import Path
 from PIL import Image, ImageTk
 
 from svdimage import SVDImage
+from dftimage import DFTImage
 
 
 def log(module_name: str, info: str) -> None:
@@ -371,7 +372,7 @@ class TargetSVDCWindow:
         path_row = ttk.Frame(right_frame)
         path_row.pack(fill=tk.X, pady=(0, 12))
 
-        self.save_path_var = tk.StringVar(value="./out/out")
+        self.save_path_var = tk.StringVar(value="./out/out_SVDC")
         ttk.Entry(path_row, textvariable=self.save_path_var).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         self.ext_var = tk.StringVar(value=".png")
@@ -438,7 +439,7 @@ class TargetSVDCWindow:
         if total <= 0:
             ratio = 0.0
         else:
-            ratio = 100.0 * ((self.image_h + self.image_w) * rank * 8) / total
+            ratio = 100.0 * ((self.image_h + self.image_w) * rank * 4) / total
         self.ratio_var.set(f"Expected compression ratio is {ratio:.2f}%")
 
     def _on_ext_changed(self, _event: tk.Event) -> None:
@@ -448,7 +449,7 @@ class TargetSVDCWindow:
         out_dir = Path("./out")
         out_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_path = out_dir / f"out_r{self.current_rank}_{timestamp}.png"
+        file_path = out_dir / f"out_SVDC_r{self.current_rank}_{timestamp}.png"
         self.current_image.save(file_path)
         log("Target-SVDC", f"save image {file_path}")
 
@@ -495,6 +496,126 @@ class TargetSVDCWindow:
         self.close_callback()
 
 
+class TargetDFTCWindow:
+    """Target 的 DFTC 子窗口，负责 DFT 压缩预览与保存。"""
+
+    def __init__(
+        self,
+        parent: "TargetWindow",
+        original_image: Image.Image,
+        image_name: str,
+        close_callback,
+        x: int,
+        y: int,
+    ) -> None:
+        self.parent = parent
+        self.image_name = image_name
+        self.close_callback = close_callback
+
+        self.window = EmbeddedWindow(
+            desktop=parent.app.desktop,
+            title=f"{image_name}-DFTC",
+            module_name="Target-DFTC",
+            x=x,
+            y=y,
+            width=900,
+            height=560,
+            on_close=self.on_close,
+        )
+        log("Target-DFTC", f"create window {image_name}-DFTC")
+
+        self.original_image = original_image.copy().convert("RGB")
+        self.current_image = self.original_image.copy()
+
+        self.dft_image = DFTImage(self.original_image)
+        log("DFTImage", f"create for {self.image_name}")
+
+        self._build_ui()
+        self._compute_max_image()
+
+    def _build_ui(self) -> None:
+        container = ttk.Panedwindow(self.window.body, orient=tk.HORIZONTAL)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        left_frame = ttk.Frame(container)
+        right_frame = ttk.Frame(container, padding=12)
+        container.add(left_frame, weight=4)
+        container.add(right_frame, weight=2)
+
+        self.viewer = ZoomableImageView(left_frame)
+        self.viewer.pack(fill=tk.BOTH, expand=True)
+        self.viewer.set_image(self.original_image, reset_view=True)
+
+        action_row = ttk.Frame(right_frame)
+        action_row.pack(fill=tk.X, pady=(0, 8))
+        ttk.Button(action_row, text="Save", command=self.save_default).pack(side=tk.LEFT)
+        ttk.Label(action_row, text=" or ").pack(side=tk.LEFT, padx=6)
+        ttk.Button(action_row, text="Save as", command=self.save_as).pack(side=tk.LEFT)
+
+        path_row = ttk.Frame(right_frame)
+        path_row.pack(fill=tk.X, pady=(0, 12))
+
+        self.save_path_var = tk.StringVar(value="./out/out_DFTC")
+        ttk.Entry(path_row, textvariable=self.save_path_var).pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.ext_var = tk.StringVar(value=".png")
+        self.ext_combo = ttk.Combobox(
+            path_row,
+            textvariable=self.ext_var,
+            state="readonly",
+            values=[".png", ".jpg", ".bmp"],
+            width=7,
+        )
+        self.ext_combo.pack(side=tk.LEFT, padx=(8, 0))
+        self.ext_combo.current(0)
+        self.ext_combo.bind("<<ComboboxSelected>>", self._on_ext_changed)
+
+        self.ratio_var = tk.StringVar(value="Expected compression ratio is 0.00%")
+        ttk.Label(right_frame, textvariable=self.ratio_var).pack(fill=tk.X, pady=(0, 10))
+
+    def _compute_max_image(self) -> None:
+        try:
+            self.current_image = self.dft_image.dftmatrix2image(mode="max")
+        except Exception as exc:
+            messagebox.showinfo("Info", f"DFTC compute failed: {exc}")
+            log("Target-DFTC", f"compute failed err={exc}")
+            self.current_image = self.original_image.copy()
+            self.ratio_var.set("Expected compression ratio is 0.00%")
+            return
+
+        self.viewer.set_image(self.current_image, reset_view=True)
+        self.ratio_var.set(f"Expected compression ratio is {self.dft_image.last_compression_ratio:.2f}%")
+        log("Target-DFTC", f"compute max mode, ratio={self.dft_image.last_compression_ratio:.2f}%")
+
+    def _on_ext_changed(self, _event: tk.Event) -> None:
+        self.window.set_title(f"{self.image_name}-DFTC ({self.ext_var.get()})")
+
+    def save_default(self) -> None:
+        out_dir = Path("./out")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_path = out_dir / f"out_DFTC_{timestamp}.png"
+        self.current_image.save(file_path)
+        log("Target-DFTC", f"save image {file_path}")
+
+    def save_as(self) -> None:
+        base = self.save_path_var.get().strip()
+        if not base:
+            messagebox.showinfo("Info", "Save path is empty.")
+            return
+
+        target_path = Path(f"{base}{self.ext_var.get()}")
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        self.current_image.save(target_path)
+        log("Target-DFTC", f"save as image {target_path}")
+
+    def on_close(self) -> None:
+        self.dft_image = None
+        log("DFTImage", f"release for {self.image_name}")
+        log("Target-DFTC", f"close window {self.image_name}-DFTC")
+        self.close_callback()
+
+
 class TargetWindow:
     """由用户加载的图像活动窗口，内嵌于主窗口。"""
 
@@ -517,6 +638,7 @@ class TargetWindow:
         log("Target", f"create window {self.image_name}")
 
         self.svdc_window: TargetSVDCWindow | None = None
+        self.dftc_window: TargetDFTCWindow | None = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -524,6 +646,7 @@ class TargetWindow:
         action_bar.pack(fill=tk.X)
 
         ttk.Button(action_bar, text="SVDC", command=self.open_svdc).pack(side=tk.LEFT)
+        ttk.Button(action_bar, text="DFTC", command=self.open_dftc).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Label(action_bar, text="Original Image Preview").pack(side=tk.LEFT, padx=(10, 0))
 
         preview_frame = ttk.Frame(self.window.body, padding=(8, 4, 8, 8))
@@ -551,10 +674,31 @@ class TargetWindow:
     def _on_svdc_closed(self) -> None:
         self.svdc_window = None
 
+    def open_dftc(self) -> None:
+        if self.dftc_window is not None and self.dftc_window.window.exists():
+            log("Target", f"DFTC already exists for {self.image_name}")
+            self.dftc_window.window.lift()
+            return
+
+        self.dftc_window = TargetDFTCWindow(
+            parent=self,
+            original_image=self.image,
+            image_name=self.image_name,
+            close_callback=self._on_dftc_closed,
+            x=self.window.frame.winfo_x() + 64,
+            y=self.window.frame.winfo_y() + 64,
+        )
+
+    def _on_dftc_closed(self) -> None:
+        self.dftc_window = None
+
     def on_close(self) -> None:
         if self.svdc_window is not None and self.svdc_window.window.exists():
             self.svdc_window.window.close()
             log("Target", f"close child SVDC for {self.image_name}")
+        if self.dftc_window is not None and self.dftc_window.window.exists():
+            self.dftc_window.window.close()
+            log("Target", f"close child DFTC for {self.image_name}")
 
         self.app.unregister_target(self)
         log("Target", f"close window {self.image_name}")
