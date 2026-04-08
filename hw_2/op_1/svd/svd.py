@@ -1,4 +1,7 @@
-from package import p3_1
+try:
+    from .package import p3_1
+except ImportError:
+    from package import p3_1
 import numpy as np
 
 def givens(a,b) -> tuple[float, float]:
@@ -36,12 +39,12 @@ def two_diagonalization(A:np.ndarray) -> tuple[np.ndarray,np.ndarray,np.ndarray]
             v, b = p3_1.house(A[k:,k:k+1])
             ut = b * v.T @ A[k:,k:]
             A[k:,k:] = A[k:,k:] - v @ ut
-            P[k:,k:] =  (np.eye(m-k) - b * v @ v.T) @ P[k:,k:]
+            P[k:,:] =  (np.eye(m-k) - b * v @ v.T) @ P[k:,:]
         if k < n-1:
             v, b = p3_1.house(A[k:k+1,k+1:].T)
             u = b * A[k:,k+1:] @ v
             A[k:,k+1:] = A[k:,k+1:] - u @ v.T
-            H[k+1:,k+1:] = H[k+1:,k+1:] @ ( np.eye(n-k-1) - b * v @ v.T )
+            H[:,k+1:] = H[:,k+1:] @ ( np.eye(n-k-1) - b * v @ v.T )
     return P, A, H
 
 def svd_iter_step(B:np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -57,7 +60,11 @@ def svd_iter_step(B:np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if n == 1:
         return np.eye(1),B,np.eye(1)
     if n == 2:
-        return two_order_svd(B)
+        U, S, V = two_order_svd(B)
+        # two_order_svd: A = U @ S @ V.T, i.e., U.T @ A @ V = S
+        # svd_iter_step needs: P @ B @ Q = S
+        # So P = U.T, Q = V
+        return U.T, S, V
     P = np.eye(n)
     Q = np.eye(n)
 
@@ -67,24 +74,25 @@ def svd_iter_step(B:np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     a = delta[n-1] * delta[n-1] + gamma[n-2] * gamma[n-2]
     de = (delta[n-2] * delta[n-2] + gamma[n-3] * gamma[n-3] - a) / 2
     b = delta[n-2] * gamma[n-2]
-    nu = a - b * b / (de + np.sign(de) * np.sqrt(de*de + b*b))
+    sign_de = 1.0 if de >= 0 else -1.0
+    nu = a - b * b / (de + sign_de * np.sqrt(de*de + b*b))
 
     y = delta[0] * delta[0] - nu
     z = delta[0] * gamma[0]
 
     for k in range(n-1):
-        # right givens B = BG
+        # right givens B = BG (column transformation, affects all rows)
         c, s = givens(y, z)
         G = np.array([[c, -s], [s, c]])
-        B[k:k+2,k:k+2] = B[k:k+2,k:k+2] @ G
-        Q[:,k:k+2] = Q[:,k:k+2] @ G
+        B[:, k:k+2] = B[:, k:k+2] @ G
+        Q[:, k:k+2] = Q[:, k:k+2] @ G
         y = B[k,k]
         z = B[k+1,k]
 
-        # left givens B = GB
+        # left givens B = GB (row transformation, affects all columns)
         c, s = givens(y, z)
         G = np.array([[c, s], [-s, c]])
-        B[k:k+2,k:k+2] = G @ B[k:k+2,k:k+2]
+        B[k:k+2, :] = G @ B[k:k+2, :]
         P[k:k+2,:] = G @ P[k:k+2,:]
         if k < n-2:
             y = B[k,k+1]
@@ -124,7 +132,7 @@ def two_order_svd(A:np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     u1 = Av1 / s1 if s1 > 1e-14 else np.array([1.0, 0.0])
     u2 = Av2 / s2 if s2 > 1e-14 else np.array([-u1[1], u1[0]])
     
-    U = np.vstack([u1, u2])
+    U = np.column_stack([u1, u2])
     S = np.diag([s1, s2])
     
     return U, S, V
@@ -191,7 +199,7 @@ def svd(A:np.ndarray,
         # Step 3(ii)
         b_norm = np.linalg.norm(B,ord=np.inf)
         for i in range(n):
-            if B[i, i] < eps * b_norm:
+            if abs(B[i, i]) < eps * b_norm:
                 B[i, i] = 0
 
         # Step 3(iii)
@@ -224,8 +232,11 @@ def svd(A:np.ndarray,
                 P[p:q,:] = G @ P[p:q,:]
                 B[p:q, p:q] = B22
 
-                # Step 2
-                P_, B, Q_ = two_diagonalization(B)
+                # Step 2 - extend B to m×n for two_diagonalization
+                B_ext = np.zeros((m, n))
+                B_ext[:n, :n] = B
+                P_, B_ext, Q_ = two_diagonalization(B_ext)
+                B = B_ext[:n, :n]
                 P = P_ @ P
                 Q = Q @ Q_
                 goto_step3 = True
@@ -239,10 +250,20 @@ def svd(A:np.ndarray,
         B[p:q, p:q] = B22
         Q[:, p:q] = Q[:, p:q] @ V
 
-    '''    # Step 5
-    # Sort the singular values in descending order
-    diag_B = np.diag(B)
-    sort_order = np.argsort(diag_B)[::-1]
+    # Step 5
+    # Sort singular values by descending magnitude and normalize diagonal signs.
+    sigma = np.abs(np.diag(B))
+    sort_order = np.argsort(sigma)[::-1]
+
+    B = B[sort_order, :][:, sort_order]
+    P_top = P[:n, :].copy()
+    P[:n, :] = P_top[sort_order, :]
+    Q = Q[:, sort_order]
+
+    for i in range(n):
+        if B[i, i] < 0:
+            B[i, :] = -B[i, :]
+            P[i, :] = -P[i, :]
 
     if debug:
         print("PBQshape")
@@ -250,33 +271,23 @@ def svd(A:np.ndarray,
         print(B.shape)
         print(Q.shape)
 
-    B = B[sort_order, :][:, sort_order]
-    P[:n,:] = P[sort_order, :]
-    Q = Q[:, sort_order]
-
-    if debug:
-        print("PBQshape")
-        print(P.shape)
-        print(B.shape)
-        print(Q.shape)'''
-
     # Step 6
     # Transform the matrix into the form in Docstring
     if transpose_flag:
         U = Q
-        V = P
-        S = B  # np.zeros((n, m))
-        # np.fill_diagonal(S, np.diag(B))
+        V = P.T
+        S = np.zeros((n, m))
+        S[:n, :n] = B.T
     else:
         U = P.T
-        V = Q.T
-        S = B  # np.zeros((m, n))
-        # np.fill_diagonal(S, np.diag(B))
+        V = Q  # Fixed: V = Q, not Q.T
+        S = np.zeros((m, n))
+        S[:n, :n] = B
 
-    return U, S, V.T
+    return U, S, V
 
 def ez_test():
-    A = np.array([[1, 2, 0, 9], [0, 3, 1, 0], [0, 0, 1, 1], [0,0,0,0]])
+    A = np.array([[1, 2, 0, 9], [0, 3, 1, 0], [0, 0, 1, 1]])
     U, S, V = svd(A, debug = True)
     print("A=")
     print(A)
@@ -290,7 +301,7 @@ def ez_test():
     print(U@U.T)
     print("V@V.T=")
     print(V@V.T)
-    print("U S V=")
+    print("U S VT=")
     print(U @ S @ V.T)
 
 if __name__ == "__main__":

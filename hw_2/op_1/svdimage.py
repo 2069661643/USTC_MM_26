@@ -63,23 +63,35 @@ class SVDImage:
         """
         if rank is None:
             rank = min(*self.rS.shape)
+        # rank clip
+        max_rank = min(
+            self.rS.shape[0], self.rS.shape[1],
+            self.gS.shape[0], self.gS.shape[1],
+            self.bS.shape[0], self.bS.shape[1],
+            self.rU.shape[1], self.gU.shape[1], self.bU.shape[1],
+            self.rV.shape[1], self.gV.shape[1], self.bV.shape[1],
+        )
+        rank = max(0, min(int(rank), max_rank))
 
         r = np.zeros(self.rS.shape)
         g = np.zeros(self.gS.shape)
         b = np.zeros(self.bS.shape)
 
         for i in range(rank):
-            if self.rS[i] <= err:
+            sigma = self.rS[i, i]
+            if sigma <= err:
                 break
-            r += self.rS[i,i] * self.rU[:,i:i+1] @ self.rV[:,i:i+1]
+            r += sigma * (self.rU[:, i:i+1] @ self.rV[:, i:i+1].T)
         for i in range(rank):
-            if self.gS[i] <= err:
+            sigma = self.gS[i, i]
+            if sigma <= err:
                 break
-            g += self.gS[i,i] * self.gU[:,i:i+1] @ self.gV[:,i:i+1]
+            g += sigma * (self.gU[:, i:i+1] @ self.gV[:, i:i+1].T)
         for i in range(rank):
-            if self.bS[i] <= err:
+            sigma = self.bS[i, i]
+            if sigma <= err:
                 break
-            b += self.bS[i,i] * self.bU[:,i:i+1] @ self.bV[:,i:i+1]
+            b += sigma * (self.bU[:, i:i+1] @ self.bV[:, i:i+1].T)
 
         r = np.clip(np.round(r), 0, 255).astype(np.uint8)
         g = np.clip(np.round(g), 0, 255).astype(np.uint8)
